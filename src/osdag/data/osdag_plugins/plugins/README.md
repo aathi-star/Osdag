@@ -9,7 +9,7 @@ Install it using
 ```bash
 pip install -e .
 ```
-after moving to the directory aathi-plugin
+after moving to the directory aathi-plugin or sample_plugin directory
 
 ## Requirements
 
