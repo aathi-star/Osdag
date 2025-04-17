@@ -15,4 +15,3 @@ after moving to the directory aathi-plugin or sample_plugin directory
 
 - Python >= 3.7
 - PyQt5 >= 5.14.2
-- Osdag 
