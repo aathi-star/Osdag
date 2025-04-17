@@ -22,10 +22,8 @@ class PluginManager:
         print("Starting plugin loading process...")
         self._load_from_entry_points()
         
-        if not self.plugins:
-            print("No plugins found from entry points, trying local directory...")
-            self._load_from_directory()
-        
+        print("Checking local directory for additional plugins...")
+        self._load_from_directory()
         
         if self.plugins:
             print("Loaded plugins:")
@@ -37,13 +35,11 @@ class PluginManager:
     def _load_from_entry_points(self):
         try:
             print("Searching for entry points in group 'osdag.plugins'...")
-            discovered_plugins = entry_points(group='osdag.plugins')
+            discovered_plugins = entry_points()
+            osdag_plugins = [ep for ep in discovered_plugins if ep.group == 'osdag.plugins']
+            print(f"Found {len(osdag_plugins)} entry points")
             
-            # Convert to list to see if we found any
-            plugin_list = list(discovered_plugins)
-            print(f"Found {len(plugin_list)} entry points")
-            
-            for plugin_entry in plugin_list:
+            for plugin_entry in osdag_plugins:
                 print(f"Attempting to load plugin from entry point: {plugin_entry.name}")
                 try:
                     self._load_plugin_from_entry(plugin_entry)
@@ -60,74 +56,103 @@ class PluginManager:
             print(f"Plugin directory not found: {plugin_dir}")
             return
 
-        # Files to ignore
-        ignore_files = {'__init__.py', 'setup.py', 'README.md'}
+        ignore_dirs = {'__pycache__'}
         
-        for filename in os.listdir(plugin_dir):
-            if filename.endswith('.py') and filename not in ignore_files:
-                print(f"Found potential plugin file: {filename}")
+        for dirname in os.listdir(plugin_dir):
+            if dirname in ignore_dirs:
+                continue
+                
+            plugin_path = os.path.join(plugin_dir, dirname)
+            if os.path.isdir(plugin_path):
+                print(f"Found potential plugin directory: {dirname}")
                 try:
-                    self._load_plugin_from_file(filename, plugin_dir)
+                    if self._try_load_plugin_from_directory(dirname, plugin_path):
+                        continue
+                        
+                    print(f"Trying nested directories in {dirname}")
+                    for nested_dir in os.listdir(plugin_path):
+                        nested_path = os.path.join(plugin_path, nested_dir)
+                        if os.path.isdir(nested_path) and nested_dir not in ignore_dirs:
+                            print(f"Found nested plugin directory: {nested_dir}")
+                            try:
+                                self._try_load_plugin_from_directory(nested_dir, nested_path)
+                            except Exception as e:
+                                print(f"Error loading plugin from nested directory {nested_dir}: {str(e)}")
+                                
                 except Exception as e:
-                    print(f"Error loading plugin {filename}: {str(e)}")
+                    print(f"Error processing directory {dirname}: {str(e)}")
 
-    def _load_plugin_from_entry(self, plugin_entry):
-        plugin_class = plugin_entry.load()
-        print(f"Loaded class {plugin_class.__name__} from entry point")
-        plugin_instance = plugin_class()
-        
-        if hasattr(plugin_instance, 'register'):
-            plugin_info = PluginInfo(
-                name=getattr(plugin_instance, 'name', plugin_entry.name),
-                version=getattr(plugin_instance, 'version', '0.1.0'),
-                description=getattr(plugin_instance, 'description', ''),
-                author=getattr(plugin_instance, 'author', 'Unknown'),
-                module=plugin_instance
-            )
-            self.plugins[plugin_entry.name] = plugin_info
-            print(f"Successfully loaded plugin from entry point: {plugin_entry.name} v{plugin_info.version}")
-        else:
-            print(f"Plugin {plugin_entry.name} does not have register() function.")
+    def _try_load_plugin_from_directory(self, plugin_name: str, plugin_path: str) -> bool:
+        """Try to load a plugin from a directory. Returns True if successful."""
+        init_path = os.path.join(plugin_path, '__init__.py')
+        if not os.path.exists(init_path):
+            print(f"No __init__.py found in {plugin_path}")
+            return False
 
-    def _load_plugin_from_file(self, filename: str, plugin_dir: str):
-        plugin_name = os.path.splitext(filename)[0]
-        plugin_path = os.path.join(plugin_dir, filename)
-        print(f"Attempting to load plugin from file: {plugin_path}")
-        
         try:
-            spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+            print(f"Attempting to load plugin from: {plugin_path}")
+            spec = importlib.util.spec_from_file_location(plugin_name, init_path)
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[plugin_name] = module
                 spec.loader.exec_module(module)
                 
-                # Look for any class that has a register method
-                for attr_name in dir(module):
-                    attr = getattr(module, attr_name)
-                    if isinstance(attr, type) and hasattr(attr, 'register'):
-                        print(f"Found plugin class: {attr_name}")
-                        try:
-                            plugin_instance = attr()
-                            plugin_info = PluginInfo(
-                                name=getattr(plugin_instance, 'name', plugin_name),
-                                version=getattr(plugin_instance, 'version', '0.1.0'),
-                                description=getattr(plugin_instance, 'description', ''),
-                                author=getattr(plugin_instance, 'author', 'Unknown'),
-                                module=plugin_instance
-                            )
-                            self.plugins[plugin_name] = plugin_info
-                            print(f"Successfully loaded plugin from file: {plugin_name} v{plugin_info.version}")
-                            return
-                        except Exception as e:
-                            print(f"Error instantiating plugin class {attr_name}: {str(e)}")
-                            continue
-                            
-                print(f"No valid plugin class found in {filename}")
+                plugin_class = None
+                if hasattr(module, 'plugin_class'):
+                    plugin_class = getattr(module, 'plugin_class')
+                else:
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if isinstance(attr, type) and hasattr(attr, 'register'):
+                            plugin_class = attr
+                            break
+                
+                if plugin_class:
+                    plugin_instance = plugin_class()
+                    if hasattr(plugin_instance, 'register'):
+                        plugin_info = PluginInfo(
+                            name=getattr(plugin_instance, 'name', plugin_name),
+                            version=getattr(plugin_instance, 'version', '0.1.0'),
+                            description=getattr(plugin_instance, 'description', ''),
+                            author=getattr(plugin_instance, 'author', 'Unknown'),
+                            module=plugin_instance
+                        )
+                        self.plugins[plugin_name] = plugin_info
+                        print(f"Successfully loaded plugin: {plugin_name} v{plugin_info.version}")
+                        return True
+                    else:
+                        print(f"Plugin class in {plugin_name} does not have register() method")
+                else:
+                    print(f"No valid plugin class found in {plugin_name}")
             else:
                 print(f"Could not load specification for plugin: {plugin_name}")
         except Exception as e:
-            print(f"Error loading plugin file {filename}: {str(e)}")
+            print(f"Error loading plugin {plugin_name}: {str(e)}")
+            print(f"Full plugin path: {plugin_path}")
+        return False
+
+    def _load_plugin_from_entry(self, plugin_entry):
+        try:
+            print(f"Loading entry point: {plugin_entry.name} = {plugin_entry.value}")
+            plugin_class = plugin_entry.load()
+            print(f"Loaded class {plugin_class.__name__} from entry point")
+            plugin_instance = plugin_class()
+            
+            if hasattr(plugin_instance, 'register'):
+                plugin_info = PluginInfo(
+                    name=getattr(plugin_instance, 'name', plugin_entry.name),
+                    version=getattr(plugin_instance, 'version', '0.1.0'),
+                    description=getattr(plugin_instance, 'description', ''),
+                    author=getattr(plugin_instance, 'author', 'Unknown'),
+                    module=plugin_instance
+                )
+                self.plugins[plugin_entry.name] = plugin_info
+                print(f"Successfully loaded plugin from entry point: {plugin_entry.name} v{plugin_info.version}")
+            else:
+                print(f"Plugin {plugin_entry.name} does not have register() function.")
+        except Exception as e:
+            print(f"Error loading entry point {plugin_entry.name}: {str(e)}")
             raise
 
     def get_plugin_info(self, plugin_name: str) -> PluginInfo:
-        return self.plugins.get(plugin_name) #to get info on plugin
+        return self.plugins.get(plugin_name)
