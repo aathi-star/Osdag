@@ -7,8 +7,12 @@ class SamplePlugin:
     def register(self):
         print(f"{self.name} v{self.version} Registered")
         print(f"Created by: {self.author}")
-        print(f"Description: {self.description}")
+        self.initialize_plugin()
         
+    def initialize_plugin(self):
+        print("Initializing Sample Plugin...")
+        print("Sample Plugin initialized successfully")
+
     def get_info(self):
         return {
             "name": self.name,
