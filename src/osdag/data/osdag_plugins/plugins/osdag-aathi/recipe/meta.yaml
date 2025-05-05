@@ -1,0 +1,13 @@
+package:
+  name: sample-plugin
+  version: 1.0.0
+
+build:
+  number: 1
+
+requirements:
+  run:
+    - python
+    - osdag
+about:
+  summary: sample plugin
