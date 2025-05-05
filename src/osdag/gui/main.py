@@ -1,65 +1,55 @@
 import sys
 import os
 from PyQt5 import QtWidgets
-from osdag.gui.ui_plugins import Ui_MainWindow
+from osdag.gui.ui_plugins import Ui_PluginsDialog
 from osdag.data.osdag_plugins.plugin_manager import PluginManager
 
-class MainWindow(QtWidgets.QMainWindow):
+class MainWindow(QtWidgets.QDialog):
     def __init__(self):
         super().__init__()
-        self.ui = Ui_MainWindow()
+        self.ui = Ui_PluginsDialog()
         self.ui.setupUi(self)
 
         print("Initializing plugin manager...")
         self.plugin_manager = PluginManager()
         self.plugin_manager.load_plugins()
 
-        #list with plugins
-        self.ui.plugin_list.clear()
-        plugins = list(self.plugin_manager.plugins.keys())
-        print(f"Found {len(plugins)} plugins: {plugins}")
-        
-        for plugin_name in plugins:
-            print(f"Adding plugin to list: {plugin_name}")
-            item = QtWidgets.QListWidgetItem(plugin_name)
-            self.ui.plugin_list.addItem(item)
-        
+        # Load plugins into the grid layout
+        self.load_plugins()
+
+        # Connect signals
+        self.ui.activate_button.clicked.connect(self.activate_plugins)
+
+    def load_plugins(self):
+        plugins = self.plugin_manager.plugins
         if not plugins:
             self.ui.status_label.setText("No plugins found. Please check the plugins directory.")
-        else:
-            self.ui.status_label.setText("Select plugins to activate")
-        
-        self.ui.activate_button.clicked.connect(self.activate_plugins)
-        self.ui.plugin_list.itemSelectionChanged.connect(self.update_plugin_info)
-
-    def update_plugin_info(self):
-        selected_items = self.ui.plugin_list.selectedItems()
-        if not selected_items:
-            self.ui.status_label.setText("Select plugins to activate")
             return
 
-        info_text = "Selected plugins:\n"
-        for item in selected_items:
-            plugin_name = item.text()
-            plugin_info = self.plugin_manager.get_plugin_info(plugin_name)
-            if plugin_info:
-                info_text += f"\n{plugin_info.name} v{plugin_info.version}\n"
-                info_text += f"Author: {plugin_info.author}\n"
-                info_text += f"Description: {plugin_info.description}\n"
-        
-        self.ui.status_label.setText(info_text)
+        self.ui.status_label.setText("Select plugins to activate")
+        for plugin_name, plugin_info in plugins.items():
+            metadata = f"Version: {plugin_info.version}\nDescription: {plugin_info.description}"
+            self.ui.addPlugin(plugin_name, metadata)
 
     def activate_plugins(self):
-        selected_items = self.ui.plugin_list.selectedItems()
-        if not selected_items:
+        selected_plugins = []
+        # Get all items in the grid layout
+        for row in range(self.ui.gridLayout.rowCount()):
+            # Get the checkbox from column 0
+            checkbox_item = self.ui.gridLayout.itemAtPosition(row, 0)
+            if checkbox_item:
+                checkbox = checkbox_item.widget()
+                if isinstance(checkbox, QtWidgets.QCheckBox) and checkbox.isChecked():
+                    selected_plugins.append(checkbox.text())
+
+        if not selected_plugins:
             self.ui.status_label.setText("Please select at least one plugin first")
             return
             
         activation_results = []
-        for item in selected_items:
-            plugin_name = item.text()
-            plugin_info = self.plugin_manager.get_plugin_info(plugin_name)
-            if plugin_info:
+        for plugin_name in selected_plugins:
+            plugin_info = self.plugin_manager.plugins.get(plugin_name)
+            if plugin_info and hasattr(plugin_info.module, 'register'):
                 try:
                     plugin_info.module.register()
                     activation_results.append(f"Plugin '{plugin_info.name}' v{plugin_info.version} activated successfully!")
@@ -73,4 +63,3 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
-    
