@@ -188,3 +188,4 @@ class Ui_MainWindow(QMainWindow):
         self.comboBox_help.setItemText(6, _translate("MainWindow", "Plugins"))
         #end of change 3
 from . import osdagMainPageIcons_rc
+
