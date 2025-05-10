@@ -35,16 +35,73 @@ class PluginManager:
     def _load_from_entry_points(self):
         try:
             print("Searching for entry points in group 'osdag.plugins'...")
-            discovered_plugins = entry_points()
-            osdag_plugins = [ep for ep in discovered_plugins if ep.group == 'osdag.plugins']
-            print(f"Found {len(osdag_plugins)} entry points")
             
-            for plugin_entry in osdag_plugins:
-                print(f"Attempting to load plugin from entry point: {plugin_entry.name}")
-                try:
-                    self._load_plugin_from_entry(plugin_entry)
-                except Exception as e:
-                    print(f"Error loading plugin {plugin_entry.name}: {str(e)}")
+            try:
+                import pkg_resources
+                entry_points = list(pkg_resources.iter_entry_points(group='osdag.plugins'))
+                print(f"Found {len(entry_points)} entry points using pkg_resources")
+                
+                for entry_point in entry_points:
+                    print(f"Attempting to load plugin from entry point: {entry_point.name}")
+                    try:
+                        plugin_class = entry_point.load()
+                        print(f"Loaded class {plugin_class.__name__} from entry point")
+                        plugin_instance = plugin_class()
+                        
+                        if hasattr(plugin_instance, 'register'):
+                            plugin_info = PluginInfo(
+                                name=getattr(plugin_instance, 'name', entry_point.name),
+                                version=getattr(plugin_instance, 'version', '0.1.0'),
+                                description=getattr(plugin_instance, 'description', ''),
+                                author=getattr(plugin_instance, 'author', 'Unknown'),
+                                module=plugin_instance
+                            )
+                            self.plugins[entry_point.name] = plugin_info
+                            print(f"Successfully loaded plugin from entry point: {entry_point.name} v{plugin_info.version}")
+                        else:
+                            print(f"Plugin {entry_point.name} does not have register() function.")
+                    except Exception as e:
+                        print(f"Error loading plugin {entry_point.name}: {str(e)}")
+                
+                if self.plugins:
+                    return
+            except ImportError:
+                print("pkg_resources not available, falling back to importlib.metadata")
+            except Exception as e:
+                print(f"Error using pkg_resources: {str(e)}")
+                
+            # Fallback to importlib.metadata
+            try:
+                from importlib.metadata import entry_points as get_entry_points
+                all_entry_points = get_entry_points()
+                
+                if isinstance(all_entry_points, dict):
+                    # Older Python versions return dict
+                    osdag_plugins = all_entry_points.get('osdag.plugins', [])
+                else:
+                    # Newer Python versions return object with select method
+                    try:
+                        osdag_plugins = all_entry_points.select(group='osdag.plugins')
+                    except AttributeError:
+                        # entry_points() returns a list of EntryPoint objects
+                        osdag_plugins = []
+                        for ep in all_entry_points:
+                            try:
+                                if hasattr(ep, 'group') and ep.group == 'osdag.plugins':
+                                    osdag_plugins.append(ep)
+                            except Exception:
+                                pass  
+                
+                print(f"Found {len(osdag_plugins)} entry points using importlib.metadata")
+                
+                for plugin_entry in osdag_plugins:
+                    print(f"Attempting to load plugin from entry point: {plugin_entry.name}")
+                    try:
+                        self._load_plugin_from_entry(plugin_entry)
+                    except Exception as e:
+                        print(f"Error loading plugin {plugin_entry.name}: {str(e)}")
+            except Exception as e:
+                print(f"Error using importlib.metadata: {str(e)}")
         except Exception as e:
             print(f"Error discovering plugins via entry points: {str(e)}")
 
@@ -56,31 +113,33 @@ class PluginManager:
             print(f"Plugin directory not found: {plugin_dir}")
             return
 
-        ignore_dirs = {'__pycache__'}
+        ignore_dirs = {'__pycache__', '.egg-info'}
         
-        for dirname in os.listdir(plugin_dir):
-            if dirname in ignore_dirs:
+        for plugin_name in os.listdir(plugin_dir):
+            if plugin_name in ignore_dirs or plugin_name.endswith('.egg-info'):
                 continue
                 
-            plugin_path = os.path.join(plugin_dir, dirname)
-            if os.path.isdir(plugin_path):
-                print(f"Found potential plugin directory: {dirname}")
-                try:
-                    if self._try_load_plugin_from_directory(dirname, plugin_path):
-                        continue
-                        
-                    print(f"Trying nested directories in {dirname}")
-                    for nested_dir in os.listdir(plugin_path):
-                        nested_path = os.path.join(plugin_path, nested_dir)
-                        if os.path.isdir(nested_path) and nested_dir not in ignore_dirs:
-                            print(f"Found nested plugin directory: {nested_dir}")
-                            try:
-                                self._try_load_plugin_from_directory(nested_dir, nested_path)
-                            except Exception as e:
-                                print(f"Error loading plugin from nested directory {nested_dir}: {str(e)}")
-                                
-                except Exception as e:
-                    print(f"Error processing directory {dirname}: {str(e)}")
+            plugin_path = os.path.join(plugin_dir, plugin_name)
+            if not os.path.isdir(plugin_path):
+                continue
+                
+            print(f"Found potential plugin directory: {plugin_name}")
+            
+            for subdir in os.listdir(plugin_path):
+                if subdir in ignore_dirs or subdir.endswith('.egg-info'):
+                    continue
+                    
+                subdir_path = os.path.join(plugin_path, subdir)
+                if not os.path.isdir(subdir_path):
+                    continue
+                    
+                init_file = os.path.join(subdir_path, '__init__.py')
+                if os.path.exists(init_file):
+                    print(f"Found plugin with __init__.py: {plugin_name}/{subdir}")
+                    try:
+                        self._try_load_plugin_from_directory(plugin_name, subdir_path)
+                    except Exception as e:
+                        print(f"Error loading plugin from {plugin_name}/{subdir}: {str(e)}")
 
     def _try_load_plugin_from_directory(self, plugin_name: str, plugin_path: str) -> bool:
         """Try to load a plugin from a directory. Returns True if successful."""
