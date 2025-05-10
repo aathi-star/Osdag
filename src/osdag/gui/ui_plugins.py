@@ -4,71 +4,137 @@ from importlib.resources import files
 class Ui_PluginsDialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(800, 600)
-        
-        # Create main layout
+        Dialog.resize(700, 500)  
         self.verticalLayout = QtWidgets.QVBoxLayout(Dialog)
         self.verticalLayout.setObjectName("verticalLayout")
-        self.verticalLayout.setContentsMargins(10, 10, 10, 10)
+        self.verticalLayout.setContentsMargins(5, 5, 5, 5)  
+        self.verticalLayout.setSpacing(2)  
         
-        # Add status label at the top
-        self.status_label = QtWidgets.QLabel("Select plugins to activate")
+        self.status_label = QtWidgets.QLabel("Select plugins to manage")
         self.status_label.setObjectName("status_label")
         self.status_label.setAlignment(QtCore.Qt.AlignCenter)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(12)
+        self.status_label.setFont(font)
         self.verticalLayout.addWidget(self.status_label)
         
-        # Create scroll area to prevent layout jumping
         self.scrollArea = QtWidgets.QScrollArea(Dialog)
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
+        self.scrollArea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        self.scrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         
-        # Create content widget for scroll area
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 780, 580))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         
-        # Create grid layout for plugins
-        self.gridLayout = QtWidgets.QGridLayout(self.scrollAreaWidgetContents)
-        self.gridLayout.setObjectName("gridLayout")
-        self.gridLayout.setSpacing(10)
-        self.gridLayout.setContentsMargins(10, 10, 10, 10)
+        self.contentLayout = QtWidgets.QVBoxLayout(self.scrollAreaWidgetContents)
+        self.contentLayout.setContentsMargins(5, 0, 5, 0)  
+        self.contentLayout.setSpacing(0)  
         
-        # Add scroll area to layout
+        
+        header_widget = QtWidgets.QWidget()
+        header_widget.setFixedHeight(25)  
+        header_layout = QtWidgets.QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(0)  
+        
+        header_font = QtGui.QFont()
+        header_font.setBold(True)
+        
+        plugin_header = QtWidgets.QLabel("Plugin Name")
+        plugin_header.setFont(header_font)
+        plugin_header.setFixedWidth(150)
+        plugin_header.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        
+        details_header = QtWidgets.QLabel("Plugin Details")
+        details_header.setFont(header_font)
+        details_header.setFixedWidth(350)
+        details_header.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        
+        actions_header = QtWidgets.QLabel("Actions")
+        actions_header.setFont(header_font)
+        actions_header.setFixedWidth(100)
+        actions_header.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        
+        header_layout.addWidget(plugin_header)
+        header_layout.addWidget(details_header)
+        header_layout.addWidget(actions_header)
+        
+        self.contentLayout.addWidget(header_widget)
+        
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        line.setMaximumHeight(1)  
+        line.setContentsMargins(0, 0, 0, 0)
+        self.contentLayout.addWidget(line)
+        
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.verticalLayout.addWidget(self.scrollArea)
         
-        # Add activate button at the bottom
-        self.activate_button = QtWidgets.QPushButton("Activate Selected Plugin(s)", Dialog)
-        self.activate_button.setObjectName("activate_button")
-        self.verticalLayout.addWidget(self.activate_button)
-        
-        # Set window icon and title
-        Dialog.setWindowIcon(QtGui.QIcon(str(files("osdag.data.ResourceFiles.images").joinpath("Osdag.png"))))
+        try:
+            Dialog.setWindowIcon(QtGui.QIcon(str(files("osdag.data.ResourceFiles.images").joinpath("Osdag.png"))))
+        except Exception:
+            pass
         Dialog.setWindowTitle("Osdag Plugin Manager")
         
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
     def addPlugin(self, plugin_name, plugin_metadata):
-        row = self.gridLayout.rowCount()
+        plugin_widget = QtWidgets.QWidget()
+        plugin_widget.setFixedHeight(55)  
         
-        # Create checkbox
-        checkbox = QtWidgets.QCheckBox(self.scrollAreaWidgetContents)
-        checkbox.setObjectName(f"checkbox_{plugin_name}")
-        checkbox.setText(plugin_name)
-        checkbox.setMinimumSize(200, 40)
+        row_layout = QtWidgets.QHBoxLayout(plugin_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(0)  
         
-        # Create metadata label
-        metadata_label = QtWidgets.QLabel(self.scrollAreaWidgetContents)
+        
+        name_label = QtWidgets.QLabel(plugin_name)
+        name_label.setObjectName(f"name_{plugin_name}")
+        name_label.setFixedWidth(150)
+        name_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        font = QtGui.QFont()
+        font.setBold(True)
+        name_label.setFont(font)
+        
+        metadata_label = QtWidgets.QLabel(plugin_metadata)
         metadata_label.setObjectName(f"metadata_{plugin_name}")
-        metadata_label.setText(plugin_metadata)
         metadata_label.setWordWrap(True)
-        metadata_label.setMaximumWidth(500)
-        metadata_label.setMinimumHeight(50)
-        metadata_label.setMinimumWidth(300)
+        metadata_label.setFixedWidth(350)
+        metadata_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         
-        # Add to grid layout
-        self.gridLayout.addWidget(checkbox, row, 0)
-        self.gridLayout.addWidget(metadata_label, row, 1)
+        buttons_widget = QtWidgets.QWidget()
+        buttons_layout = QtWidgets.QVBoxLayout(buttons_widget)
+        buttons_layout.setSpacing(2)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_widget.setFixedWidth(100)
+        
+        activate_button = QtWidgets.QPushButton("Activate")
+        activate_button.setObjectName(f"activate_{plugin_name}")
+        activate_button.setFixedSize(90, 25)  # Wider button
+        
+        deactivate_button = QtWidgets.QPushButton("Deactivate")
+        deactivate_button.setObjectName(f"deactivate_{plugin_name}")
+        deactivate_button.setFixedSize(90, 25)  # Wider button
+        
+        buttons_layout.addWidget(activate_button)
+        buttons_layout.addWidget(deactivate_button)
+        
+        row_layout.addWidget(name_label)
+        row_layout.addWidget(metadata_label)
+        row_layout.addWidget(buttons_widget)
+        
+        self.contentLayout.addWidget(plugin_widget)
+        
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        line.setMaximumHeight(1)  
+        line.setContentsMargins(0, 0, 0, 0)
+        self.contentLayout.addWidget(line)
+        
+        return activate_button, deactivate_button
 
 if __name__ == "__main__":
     import sys
