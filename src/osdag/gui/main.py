@@ -17,25 +17,41 @@ class MainWindow(QtWidgets.QDialog):
         self.load_plugins()
 
     def load_plugins(self):
-        plugins = self.plugin_manager.plugins
-        if not plugins:
-            self.ui.status_label.setText("No plugins found. Please check the plugins directory.")
-            return
-
-        self.ui.status_label.setText("Plugin Manager")
-        for plugin_name, plugin_info in plugins.items():
-            metadata = f"Version: {plugin_info.version}\nDescription: {plugin_info.description}\nAuthor: {plugin_info.author}"
-            activate_btn, deactivate_btn = self.ui.addPlugin(plugin_name, metadata)
+        try:
+            self.ui.clearPlugins()
             
-            activate_btn.clicked.connect(lambda checked, name=plugin_name: self.activate_plugin(name))
-            deactivate_btn.clicked.connect(lambda checked, name=plugin_name: self.deactivate_plugin(name))
-    
+            plugins = self.plugin_manager.plugins
+            
+            for plugin_name, plugin_info in plugins.items():
+                toggle_switch, delete_btn, _ = self.ui.addPlugin(
+                    plugin_name,
+                    f"Version: {plugin_info.version}\n"
+                    f"Author: {plugin_info.author}\n"
+                    f"Description: {plugin_info.description}"
+                )
+                
+                # Connect toggle switch to handle both activate and deactivate
+                toggle_switch.toggled.connect(
+                    lambda checked, name=plugin_name: (
+                        self.activate_plugin(name) if checked 
+                        else self.deactivate_plugin(name)
+                    )
+                )
+                delete_btn.clicked.connect(lambda _, name=plugin_name: self.delete_plugin(name))
+                
+            self.ui.status_label.setText("Plugins loaded successfully")
+            
+        except Exception as e:
+            self.ui.status_label.setText(f"Error loading plugins: {str(e)}")
+
     def activate_plugin(self, plugin_name):
         try:
             plugin_info = self.plugin_manager.get_plugin_info(plugin_name)
             if plugin_info:
-                plugin_info.module.register()
-                self.ui.status_label.setText(f"Plugin '{plugin_info.name}' v{plugin_info.version} activated successfully!")
+                if not hasattr(plugin_info.module, 'is_active') or not plugin_info.module.is_active:
+                    plugin_info.module.register()
+                    plugin_info.module.is_active = True
+                    self.ui.status_label.setText(f"Plugin '{plugin_info.name}' v{plugin_info.version} activated successfully!")
             else:
                 self.ui.status_label.setText(f"Plugin '{plugin_name}' not found")
         except Exception as e:
@@ -46,14 +62,39 @@ class MainWindow(QtWidgets.QDialog):
             plugin_info = self.plugin_manager.get_plugin_info(plugin_name)
             if plugin_info:
                 if hasattr(plugin_info.module, 'deactivate'):
-                    plugin_info.module.deactivate()
-                    self.ui.status_label.setText(f"Plugin '{plugin_info.name}' v{plugin_info.version} deactivated successfully!")
+                    if hasattr(plugin_info.module, 'is_active') and plugin_info.module.is_active:
+                        plugin_info.module.deactivate()
+                        plugin_info.module.is_active = False
+                        self.ui.status_label.setText(f"Plugin '{plugin_info.name}' v{plugin_info.version} deactivated successfully!")
                 else:
                     self.ui.status_label.setText(f"Plugin '{plugin_info.name}' does not support deactivation")
             else:
                 self.ui.status_label.setText(f"Plugin '{plugin_name}' not found")
         except Exception as e:
             self.ui.status_label.setText(f"Error deactivating {plugin_name}: {str(e)}")
+
+    def delete_plugin(self, plugin_name):
+        try:
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                'Delete Plugin',
+                f'Are you sure you want to delete the plugin "{plugin_name}"?',
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.Cancel,
+                QtWidgets.QMessageBox.Cancel
+            )
+
+            if reply == QtWidgets.QMessageBox.Yes:
+                self.ui.clearPlugins()
+                
+                success = self.plugin_manager._delete_plugin(plugin_name)
+                
+                if success:
+                    self.load_plugins()
+                    self.ui.status_label.setText(f"Plugin '{plugin_name}' has been successfully deleted.")
+                else:
+                    self.ui.status_label.setText(f"Failed to delete plugin '{plugin_name}'.")
+        except Exception as e:
+            self.ui.status_label.setText(f"Error deleting plugin: {str(e)}")
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
