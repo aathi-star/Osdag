@@ -11,7 +11,7 @@ class MainWindow(QtWidgets.QDialog):
         self.ui.setupUi(self)
 
         print("Initializing plugin manager...")
-        self.plugin_manager = PluginManager()
+        self.plugin_manager = PluginManager(main_win=self)  # Pass self as main_win
         self.plugin_manager.load_plugins()
 
         self.load_plugins()
