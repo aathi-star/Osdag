@@ -12,10 +12,10 @@ class AnimatedToggle(QPushButton):
         self.setCursor(Qt.PointingHandCursor)
         
         # Colors
-        self._bg_color = QColor('#ff4d4d')
-        self._circle_color = QColor('#ffffff')
-        self._active_color = QColor('#4CAF50')
-        self._inactive_color = QColor('#ff4d4d')
+        self._bg_color = QColor('#e0e0e0')  # Light gray background when off
+        self._circle_color = QColor('#ffffff')  # White circle
+        self._active_color = QColor('#4CAF50')  # Green when on
+        self._inactive_color = QColor('#e0e0e0')  # Light gray when off
         self._circle_padding = 3
         
         # Animation
@@ -129,12 +129,12 @@ class Ui_PluginsDialog:
             }
         """)
         
-        # Create grid layout for plugins with proper spacing
+        # Create grid layout for plugins with no spacing
         self.gridLayout = QtWidgets.QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout.setObjectName("gridLayout")
-        self.gridLayout.setSpacing(0)  # No spacing between rows
-        self.gridLayout.setContentsMargins(10, 5, 10, 5)  # Reasonable margins
-        self.gridLayout.setVerticalSpacing(2)  # Minimal vertical spacing
+        self.gridLayout.setSpacing(0)  # No spacing between rows or columns
+        self.gridLayout.setContentsMargins(5, 1, 5, 1)  # Minimal margins (left, top, right, bottom)
+        self.gridLayout.setVerticalSpacing(0)  # No vertical spacing between rows
         
         # Set column stretch factors
         self.gridLayout.setColumnStretch(0, 1)  # Name column
@@ -147,34 +147,47 @@ class Ui_PluginsDialog:
         self.gridLayout.setColumnMinimumWidth(2, 100)  # Buttons column
         
         # Add header labels with proper styling
-        header_row = QtWidgets.QWidget(self.scrollAreaWidgetContents)
-        header_row.setStyleSheet("background: #f0f0f0; border-radius: 4px;")
+        # Ultra-thin header row
+        header_row = QtWidgets.QFrame()
+        header_row.setFrameShape(QFrame.StyledPanel)
+        header_row.setFixedHeight(20)  # Fixed small height
+        header_row.setStyleSheet("""
+            QFrame {
+                background: #f5f5f5;
+                border: none;
+                border-bottom: 1px solid #e0e0e0;
+                margin: 0;
+                padding: 0;
+                font-size: 9px;
+                font-weight: bold;
+                text-transform: uppercase;
+                color: #666;
+            }
+        """)
         header_layout = QtWidgets.QHBoxLayout(header_row)
-        header_layout.setContentsMargins(10, 5, 10, 5)
-        header_layout.setSpacing(10)
+        header_layout.setContentsMargins(8, 0, 8, 0)  # Minimal vertical padding
+        header_layout.setSpacing(5)  # Minimal spacing between items
         
-        header_font = QtGui.QFont()
-        header_font.setBold(True)
-        
+        # Plugin Name header
         plugin_header = QtWidgets.QLabel("Plugin Name")
-        plugin_header.setFont(header_font)
-        plugin_header.setFixedWidth(150)
+        plugin_header.setFixedWidth(100)  # Smaller width
         
+        # Details header - centered
         details_header = QtWidgets.QLabel("Plugin Details")
-        details_header.setFont(header_font)
-        details_header.setFixedWidth(400)
+        details_header.setAlignment(QtCore.Qt.AlignCenter)
         
+        # Actions header - right aligned
         actions_header = QtWidgets.QLabel("Actions")
-        actions_header.setFont(header_font)
-        actions_header.setFixedWidth(120)
+        actions_header.setFixedWidth(100)  # Fixed width for actions
         
+        # Add widgets to header
         header_layout.addWidget(plugin_header)
-        header_layout.addWidget(details_header)
-        header_layout.addWidget(actions_header)
-        header_layout.addStretch()
+        header_layout.addWidget(details_header, 1)  # Allow details to expand
+        header_layout.addWidget(actions_header, 0, Qt.AlignRight)  # Align actions to right
         
-        # Add header row to grid
-        self.gridLayout.addWidget(header_row, 0, 0, 1, 3)  # Span all columns
+        # Add header to grid with no extra spacing
+        self.gridLayout.addWidget(header_row, 0, 0, 1, 3)
+        self.gridLayout.setRowMinimumHeight(0, 20)  # Match fixed height
         
         # Add scroll area to layout
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
@@ -217,10 +230,10 @@ class Ui_PluginsDialog:
     def addPlugin(self, plugin_name, plugin_metadata):
         row = self.gridLayout.rowCount()
         
-        # Create plugin name label
+        # Create plugin name label with minimal spacing
         name_widget = QtWidgets.QWidget(self.scrollAreaWidgetContents)
         name_layout = QtWidgets.QHBoxLayout(name_widget)
-        name_layout.setContentsMargins(5, 2, 5, 2)
+        name_layout.setContentsMargins(2, 1, 2, 1)  # Minimal margins
         
         name_label = QtWidgets.QLabel(plugin_name)
         name_label.setObjectName(f"name_{plugin_name}")
@@ -231,10 +244,11 @@ class Ui_PluginsDialog:
         name_layout.addWidget(name_label)
         name_layout.addStretch()
         
-        # Metadata widget with proper sizing
+        # Metadata widget with minimal spacing
         metadata_widget = QtWidgets.QWidget(self.scrollAreaWidgetContents)
         metadata_layout = QtWidgets.QVBoxLayout(metadata_widget)
-        metadata_layout.setContentsMargins(5, 2, 5, 2)
+        metadata_layout.setContentsMargins(2, 1, 2, 1)  # Minimal margins
+        metadata_layout.setSpacing(0)  # No spacing between metadata items
         
         metadata_label = QtWidgets.QLabel(plugin_metadata)
         metadata_label.setObjectName(f"metadata_{plugin_name}")
@@ -253,21 +267,24 @@ class Ui_PluginsDialog:
         delete_button.setObjectName(f"delete_{plugin_name}")
         delete_button.setFixedSize(80, 30)
         
-        # Create a container widget for the plugin row with proper styling
-        row_widget = QtWidgets.QWidget()
+        # Create a container widget for the plugin row with minimal styling
+        row_widget = QtWidgets.QFrame()
+        row_widget.setFrameShape(QFrame.StyledPanel)
         row_widget.setStyleSheet("""
-            QWidget {
-                background: white;
-                border-radius: 4px;
-                margin: 2px 0;
+            QFrame {
+                border: none;
+                border-bottom: 1px solid #f0f0f0;
+                margin: 0;
+                padding: 0;
             }
-            QWidget:hover {
+            QFrame:hover {
                 background: #f8f8f8;
             }
         """)
         row_layout = QtWidgets.QHBoxLayout(row_widget)
-        row_layout.setContentsMargins(10, 8, 10, 8)
-        row_layout.setSpacing(15)
+        row_layout.setContentsMargins(5, 2, 5, 2)  # Minimal padding
+        row_layout.setSpacing(10)  # Spacing between elements
+        row_layout.setAlignment(Qt.AlignVCenter)  # Vertically center contents
         
         # Add name and metadata to the row
         row_layout.addWidget(name_widget, 1, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
@@ -299,15 +316,15 @@ class Ui_PluginsDialog:
             }
         """)
         
-        # Create a vertical layout for the buttons
+        # Create a vertical layout for the buttons with minimal spacing
         button_container = QWidget()
         button_layout = QVBoxLayout(button_container)
         button_layout.setContentsMargins(0, 0, 0, 0)
-        button_layout.setSpacing(4)
+        button_layout.setSpacing(2)  # Very small space between buttons
         button_layout.addWidget(toggle_switch, 0, Qt.AlignCenter)
         button_layout.addWidget(delete_button, 0, Qt.AlignCenter)
         
-        buttons_layout.addWidget(button_container)
+        buttons_layout.addWidget(button_container, alignment=Qt.AlignRight)
         
         # Add buttons to row and row to grid
         row_layout.addWidget(buttons_widget, 1, QtCore.Qt.AlignRight)
@@ -318,8 +335,8 @@ class Ui_PluginsDialog:
         self.gridLayout.setColumnStretch(1, 2)
         self.gridLayout.setColumnStretch(2, 0)  # Don't stretch buttons column
         
-        # Set row stretch to push content to top
-        self.gridLayout.setRowStretch(row + 1, 1)
+        # No row stretch to prevent extra space
+        self.gridLayout.setRowStretch(row, 0)
         
         # Return only the widgets that need connections
         return toggle_switch, delete_button, None
