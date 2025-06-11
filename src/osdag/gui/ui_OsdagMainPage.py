@@ -77,6 +77,7 @@ class Ui_MainWindow(QMainWindow):
         #change 1
         self.comboBox_help.addItem("")
         self.comboBox_help.addItem("")
+        self.comboBox_help.addItem("")
         #end of change 1
         self.gridLayout.addWidget(self.comboBox_help, 1, 0)
         layout = QtWidgets.QHBoxLayout()
@@ -171,7 +172,12 @@ class Ui_MainWindow(QMainWindow):
             if not self.plugin_window:
                 self.plugin_window = PluginWindow()
             self.plugin_window.show()
+            self.comboBox_help.setCurrentIndex(0)
         
+        elif self.comboBox_help.itemText(index) == "Install Plugins":
+            from osdag.gui.install_plugins import InstallPluginsDialog
+            install_dialog = InstallPluginsDialog()
+            install_dialog.exec_()
             self.comboBox_help.setCurrentIndex(0)
     #end of change 2
 
@@ -187,5 +193,6 @@ class Ui_MainWindow(QMainWindow):
         #change 3
         self.comboBox_help.setItemText(6, _translate("MainWindow", "Plugins"))
         #end of change 3
+        self.comboBox_help.setItemText(7, _translate("MainWindow", "Install Plugins"))
 from . import osdagMainPageIcons_rc
 
