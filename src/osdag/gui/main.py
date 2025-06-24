@@ -9,12 +9,39 @@ class MainWindow(QtWidgets.QDialog):
         super().__init__()
         self.ui = Ui_PluginsDialog()
         self.ui.setupUi(self)
+        
+        # Add a flag to track if this is the first time the dialog is shown
+        self._first_show = True
 
         print("Initializing plugin manager...")
         self.plugin_manager = PluginManager(main_win=self)  # Pass self as main_win
-        self.plugin_manager.load_plugins()
-
+        self.plugin_manager.load_plugins()  # Initial plugin loading
         self.load_plugins()
+        
+    def showEvent(self, event):
+        """Override showEvent to rescan for plugins whenever the dialog is shown again.
+        This ensures newly installed plugins are discovered without requiring a restart.
+        Initial plugins are loaded only once in __init__ to avoid duplicates."""
+        if not self._first_show:  # Only reload plugins on subsequent shows
+            print("Plugin manager dialog reopened - rescanning for new plugins...")
+            # First, clear the UI completely
+            self.ui.clearPlugins()
+            
+            # Then clear existing plugins and rescan
+            self.plugin_manager.plugins.clear()
+            self.plugin_manager.load_plugins()  # Rescan for plugins
+            
+            # Reload the UI with fresh plugin data
+            self.load_plugins()
+            
+            # Update status message to show reload happened
+            self.ui.status_label.setText(f"Plugins reloaded successfully - {len(self.plugin_manager.plugins)} found")
+        
+        # Mark that the dialog has been shown once
+        self._first_show = False
+        
+        # Call the base class implementation
+        super().showEvent(event)
 
     def load_plugins(self):
         try:
