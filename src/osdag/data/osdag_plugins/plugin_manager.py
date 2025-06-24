@@ -25,6 +25,26 @@ class PluginManager:
     def __init__(self, main_win=None):
         self.plugins: Dict[str, PluginInfo] = {}
         self.main_win = main_win
+        
+    def _get_main_window(self):
+        """Get the main window instance if it wasn't provided during initialization"""
+        # If main_win was provided during initialization, use it
+        if self.main_win is not None:
+            return self.main_win
+            
+        # Otherwise, try to find it from the active Qt application
+        try:
+            from PyQt5.QtWidgets import QApplication
+            from osdag.osdagMainPage import OsdagMainWindow
+            
+            for widget in QApplication.instance().topLevelWidgets():
+                if isinstance(widget, OsdagMainWindow):
+                    self.main_win = widget
+                    return self.main_win
+        except Exception as e:
+            print(f"Error finding main window: {str(e)}")
+            
+        return None
 
     def load_plugins(self):
         """Load plugins from entry points and local directory."""
@@ -209,7 +229,8 @@ class PluginManager:
                         )
                         self.plugins[plugin_name] = plugin_info
                         # Store main window reference in the plugin instance
-                        plugin_instance.main_win = self.main_win
+                        # Use _get_main_window to find main window if not provided
+                        plugin_instance.main_win = self._get_main_window()
                         print(f"Successfully loaded plugin from directory: {plugin_name} v{plugin_info.version}")
                         return True
                     else:
@@ -239,7 +260,8 @@ class PluginManager:
                 )
                 self.plugins[plugin_entry.name] = plugin_info
                 # Store main window reference in the plugin instance
-                plugin_instance.main_win = self.main_win
+                # Use _get_main_window to find main window if not provided
+                plugin_instance.main_win = self._get_main_window()
                 print(f"Successfully loaded plugin from entry point: {plugin_entry.name} v{plugin_info.version}")
                 return True
             else:
