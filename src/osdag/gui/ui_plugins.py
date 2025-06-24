@@ -205,11 +205,45 @@ class Ui_PluginsDialog:
 
     def clearPlugins(self):
         """Clear all plugins from the UI."""
-        # Skip the header row (first 3 items)
-        while self.gridLayout.count() > 3:
-            item = self.gridLayout.takeAt(3)
-            if item.widget():
-                item.widget().deleteLater()
+        # We need to keep the header row (at index 0) and remove everything else
+        # The simplest approach is to always remove widgets at index 1 until only 1 item remains
+        # This works because when you remove an item at index 1, the next item shifts to index 1
+        
+        # Get total initial count
+        total_items = self.gridLayout.count()
+        print(f"Clearing UI - found {total_items} total items in grid layout")
+        
+        # Keep removing items at index 1 until only the header remains
+        removed_count = 0
+        while self.gridLayout.count() > 1:
+            item = self.gridLayout.takeAt(1)  # Always take the item at index 1
+            if item is not None:
+                widget = item.widget()
+                if widget is not None:
+                    print(f"Removing widget at index 1")
+                    widget.setParent(None)
+                    widget.deleteLater()
+                    removed_count += 1
+                # If it's a layout instead of a widget
+                elif item.layout() is not None:
+                    self.deleteItemsOfLayout(item.layout())
+        
+        print(f"UI cleared - removed {removed_count} widgets, {self.gridLayout.count()} items remain")
+        
+        # Force an update of the layout
+        self.scrollAreaWidgetContents.adjustSize()
+        
+    def deleteItemsOfLayout(self, layout):
+        """Recursively delete all items in a layout."""
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.setParent(None)
+                    widget.deleteLater()
+                elif item.layout() is not None:
+                    self.deleteItemsOfLayout(item.layout())
     
     def toggle_metadata(self, label, button):
         """Toggle between showing full and truncated metadata."""
