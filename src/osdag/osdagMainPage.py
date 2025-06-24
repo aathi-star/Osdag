@@ -159,9 +159,10 @@ from .design_type.connection.beam_beam_end_plate_splice import BeamBeamEndPlateS
 
 from .design_type.connection.column_cover_plate import ColumnCoverPlate
 from .design_type.connection.column_end_plate import ColumnEndPlate
-from .design_type.compression_member import Column
+#from .design_type.compression_member import Column
 from .design_type.compression_member.compression import Compression
-from .design_type.compression_member.Column import ColumnDesign
+# ColumnDesign is now provided by the osdag-column plugin
+# from .design_type.compression_member.Column import ColumnDesign
 #from .design_type.beam_column.Beam_Colum_Compression import ColumnDesign
 
 from .design_type.flexural_member.flexure import Flexure
@@ -304,11 +305,12 @@ class OsdagMainWindow(QMainWindow):
                             ('Welded to End Gusset',str(files("osdag.data.ResourceFiles.images").joinpath("welded_ten.png")),'Tension_Welded'),
                             self.show_tension_module,
                                    ],
-                'Compression Member': [('Axially Loaded Columns', str(files("osdag.data.ResourceFiles.images").joinpath("CompressionMembers_ColumnsInFrames")), 'Column_Design'),
-                                       # ('Beam-Column Design', str(files("osdag.data.ResourceFiles.images").joinpath("BC_CF-BW-Flush.png")), 'Beam_Column_Design'),
-                                       ('Struts in Trusses', str(files("osdag.data.ResourceFiles.images").joinpath("strut.jpg")), 'Strut_Design'),
-                                       self.show_compression_module,
-                                       ],
+                'Compression Member': [
+                                        # Column module is now provided by a plugin
+                                        # ('Axially Loaded Columns', str(files("osdag.data.ResourceFiles.images").joinpath("CompressionMembers_ColumnsInFrames")), 'Column_Design'),
+                                        ('Struts in Trusses', str(files("osdag.data.ResourceFiles.images").joinpath("strut.jpg")), 'Strut_Design'),
+                                        self.show_compression_module,
+                                        ],
                 'Flexural Member' : [
                     ('Simply Supported Beam', str(files("osdag.data.ResourceFiles.images").joinpath("simply-supported-beam.jpg")), 'Beam_flexure'),
                     ('Cantilever Beam', str(files("osdag.data.ResourceFiles.images").joinpath("cantilever-beam.jpg")), 'Beam_flexure2'),
@@ -442,6 +444,105 @@ class OsdagMainWindow(QMainWindow):
         self.resize(int(width*(0.85)), int(height*(0.75)))
         self.center()
         self.show()
+        
+    def rebuild_ui_for_module(self, module_name):
+        """
+        Rebuild UI for a specific module when its structure changes
+        Used by plugins to update UI when Modules dictionary is modified
+        
+        Args:
+            module_name (str): Name of the module to rebuild (e.g., 'Compression Member')
+        """
+        print(f"Rebuilding UI for {module_name}...")
+        
+        # Check if module exists
+        if module_name not in self.Modules:
+            print(f"Module {module_name} not found in Modules dictionary")
+            return
+            
+        try:
+            # Debug information about self and UI
+            print(f"Main window type: {type(self)}")
+            print(f"Has UI attribute: {hasattr(self, 'ui')}")
+            if hasattr(self, 'ui'):
+                print(f"UI type: {type(self.ui)}")
+                print(f"Has myStackedWidget: {hasattr(self.ui, 'myStackedWidget')}")
+                
+            # Find the module's index in the stacked widget
+            module_index = -1
+            for i, name in enumerate(self.Modules.keys()):
+                if name == module_name:
+                    module_index = i
+                    break
+                    
+            if module_index == -1:
+                print(f"Could not find index for module {module_name}")
+                return
+                
+            print(f"Found module {module_name} at index {module_index}")
+            
+            # The UI is built during __init__ and may not be accessible during plugin activation
+            # We need to use a different approach to update the UI
+            # For now, we'll just modify the Modules dictionary and let the user restart the app
+            print("Modified Modules dictionary but UI rebuild requires application restart")
+            print(f"Column module has been added to Compression Member in the Modules dictionary")
+            print(f"Please restart Osdag to see the changes in the UI")
+            
+            # Alternative approach: direct widget manipulation
+            # This would require finding the appropriate widget in the UI hierarchy
+            # and modifying it directly rather than trying to rebuild from scratch
+            try:
+                # Try a more direct approach to find and update the UI
+                # This is experimental and may not work in all cases
+                if hasattr(self, 'ui') and hasattr(self.ui, 'myStackedWidget'):
+                    # Get the compression member module page
+                    print("Attempting direct widget manipulation...")
+                    parent_widget = None
+                    
+                    # Find page containing Strut_Design radio button
+                    for i in range(self.ui.myStackedWidget.count()):
+                        page = self.ui.myStackedWidget.widget(i)
+                        strut_button = page.findChild(QRadioButton, 'Strut_Design')
+                        if strut_button:
+                            # Found the Compression Member page
+                            print(f"Found Compression Member page at index {i}")
+                            parent_widget = strut_button.parent()
+                            while parent_widget and not hasattr(parent_widget, 'gridLayout'):
+                                parent_widget = parent_widget.parent()
+                            break
+                    
+                    if parent_widget and hasattr(parent_widget, 'gridLayout'):
+                        # Add column button
+                        try:
+                            # Try various import approaches
+                            try:
+                                from osdag.data.osdag_plugins.plugins.osdag_column.column_plugin.submodule_widget import create_column_module_widget
+                            except ImportError:
+                                import sys
+                                import os
+                                # Dynamically import from the plugin path
+                                plugin_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+                                                          'data', 'osdag_plugins', 'plugins', 'osdag-column')
+                                if plugin_path not in sys.path:
+                                    sys.path.append(plugin_path)
+                                from column_plugin.submodule_widget import create_column_module_widget
+                                
+                            # Create and add the widget
+                            widget = create_column_module_widget(self)
+                            parent_widget.gridLayout.addWidget(widget, 0, 1)  # Add as second item in first row
+                            print("Added Column widget directly to UI")
+                        except Exception as e:
+                            print(f"Could not import submodule_widget: {e}")
+                            import traceback
+                            traceback.print_exc()
+            except Exception as e:
+                print(f"Error during direct widget manipulation: {e}")
+                import traceback
+                traceback.print_exc()
+        except Exception as e:
+            print(f"Error rebuilding UI for {module_name}: {e}")
+            import traceback
+            traceback.print_exc()
 
     def center(self):
         frameGm = self.frameGeometry()
@@ -675,6 +776,61 @@ class OsdagMainWindow(QMainWindow):
         """ Create radio buttons for the sub-modules under the compression module"""
         column_design_button = self.findChild(QRadioButton, 'Column_Design')
         if column_design_button is not None and column_design_button.isChecked():
+            ColumnDesign = None
+            
+            try:
+                import importlib
+                try:
+                    try:
+                        column_plugin_module = importlib.import_module('osdag.data.osdag_plugins.plugins.osdag_column.column_plugin.column.Column')
+                    except ImportError:
+                        column_plugin_module = importlib.import_module('osdag.data.osdag_plugins.plugins.osdag_column.column_plugin.column')
+                    except ImportError:
+                        import os
+                        import sys
+                        
+                        plugin_dir = os.path.join(os.path.dirname(__file__), 
+                                              'data', 'osdag_plugins', 'plugins', 'osdag-column', 'column_plugin')
+                        if os.path.exists(plugin_dir) and plugin_dir not in sys.path:
+                            sys.path.append(plugin_dir)
+                        
+                        column_plugin_module = importlib.import_module('column.Column')
+                    if hasattr(column_plugin_module, 'ColumnDesign'):
+                        ColumnDesign = column_plugin_module.ColumnDesign
+                        print("Successfully imported ColumnDesign from plugin directory")
+                except ImportError:
+                    try:
+                        from osdag.data.osdag_plugins.plugins.osdag_column.column_plugin.column.Column import ColumnDesign
+                        print("Successfully imported ColumnDesign from normal path")
+                    except ImportError:
+                        pass
+                        #try:
+                            # Try another approach with importlib
+                         #   module = importlib.import_module('osdag.design_type.compression_member.Column')
+                          #  if hasattr(module, 'ColumnDesign'):
+                           #     ColumnDesign = module.ColumnDesign
+                            #    print("Successfully imported ColumnDesign via importlib")
+                        #except ImportError as e:
+                         #   pass  # Will be handled in the final check
+                            
+                # As a last resort, check if ColumnDesign is in globals (might have been imported by plugin)
+                if ColumnDesign is None and 'ColumnDesign' in globals():
+                    ColumnDesign = globals()['ColumnDesign']
+                    print("Found ColumnDesign in global namespace")
+                    
+                # If still not found, raise error    
+                if ColumnDesign is None:
+                    raise ImportError("Could not find ColumnDesign class in any location")
+                    
+            except Exception as e:
+                print(f"Error importing ColumnDesign: {e}")
+                import traceback
+                traceback.print_exc()
+                # Show error message to user
+                QMessageBox.critical(self, "Import Error", 
+                                  "Could not load Column module. Please ensure the Column plugin is activated.")
+                return
+            
             self.hide()
             self.ui2 = Ui_ModuleWindow(ColumnDesign, ' ')
             self.ui2.show()
